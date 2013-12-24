@@ -32,8 +32,6 @@ def download_file(connection_string, url_params={}, post_params={}):
     url = connection_string
   else:
     url = connection_string + '?' + url_params
-  print "[*] %s" % url
-  print "[*] POST Params: %s" % post_params
   response = urllib2.urlopen(url, post_params).read()
   
   return response
