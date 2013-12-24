@@ -1,0 +1,187 @@
+#!/usr/bin/env python
+import sys
+import time
+import getopt
+
+import nessus.api 
+import nessus.util
+
+def usage():
+  print """Usage: %s [Options]
+  
+  Options:
+  -h --help                            Help
+  -s --server                          Nessus server URL 
+                                       (default: https://127.0.0.1:8834)
+
+  -u --username                        Nessus username 
+  -p --password                        Nessus password
+  --list-reports                       List available reports
+  --list-templates                     List scan templates
+  --list-scans                         List running scans
+  -r --run=[template id]               Run a scan template
+  -g --generate-report=[report id]     Generate a report
+  -L --generate-last=[num]             Generate last x number of reports
+  -f --report-format=[format]          Report format. Valid formats:(nchapter.html, nessusv2, xslt.csv.xsl)
+  -o --output-file=[filename]          Output file
+  
+  """ % sys.argv[0]
+
+def main():
+  try:
+    opts, args = getopt.getopt(sys.argv[1:], "o:vg:vr:vs:vu:vp:vhwf:vL:v", ["output-file=","generate-report=","run=","server=","username=","password=","help","list-reports","list-templates","list-policies","list-scans","wait","report-format=","generate-last="])
+  except Exception as err:
+    print str(err)
+    usage()
+    sys.exit(2)
+  
+  # set defaults
+  username = ""
+  password = ""
+  server = "https://127.0.0.1:8834"
+  action = None
+  template = None
+  report = None
+  report_format = 'nchapter.html'
+  list_type = None
+  output_file = None
+  wait = False
+  num_reports = 0
+  
+  for o, a in opts:
+    if o == "-l":
+      list_templates = True
+    elif o in ("-h", "--help"):
+      usage()
+      sys.exit()
+    elif o in ("-g", "--generate-report"):
+      action = 'generate-report'
+      report = a
+    elif o in ("-l", "--generate-last"):
+      action = 'generate-reports'
+      num_reports = int(a)
+    elif o in ("-o", "--output-file"):
+      output_file = a
+    elif o in ("-r", "--run"):
+      action = 'run'
+      template = a
+    elif o in ("-f", "--report-format"):
+      report_format = a
+    elif o in ("-w", "--wait"):
+      wait = True
+    elif o in ("-s", "--server"):
+      server = a
+    elif o in ("-u", "--username"):
+      username = a
+    elif o in ("-p", "--password"):
+      password = a  
+    elif o in ("-l", "--list-templates"):
+      action = 'list'
+      list_type = 'templates'
+    elif o in ("-l", "--list-reports"):
+      action = 'list'
+      list_type = 'reports' 
+    elif o in ("-l", "--list-scans"):
+      action = 'list'      
+      list_type = 'scans'      
+    elif o in ("-l", "--list-policies"):
+      action = 'list'
+      list_type = 'policies'       
+      
+  filters = [
+  {'search_type':'and',
+   'filter.0.quality':'neq',
+   'filter.0.filter':'risk_factor',
+   'filter.0.value':'None'},
+  {'filter.1.quality':'eq',
+   'filter.1.filter':'exploit_available',
+   'filter.1.value':'true'}
+  ]
+      
+  api = nessus.api.Api()
+  api.login(server, username, password)
+  
+  def generate_report(report, report_format):
+    if report:
+      if report_format == 'nchapter.html':
+        queue = api.report_format_generate(server, report, report_format, 'vuln_by_host;vuln_by_plugin;remediations', filters) 
+        file_ext = ".htm"
+      else:
+        queue = api.report_format_generate(server, report, report_format, None, []) 
+        if report_format == "xslt.csv.xsl":
+          file_ext = ".csv"
+        else: 
+          file_ext = ".nessus"
+      if output_file:
+        f = open(output_file, 'wb')
+      else:
+        f = open(nessus.util.decode_filename(queue['file']) + file_ext, 'wb')
+      while 1:
+        if api.report_format_status(server,queue['file'])['status'] == 'ready':
+          break
+        else:
+          time.sleep(2)
+      f.write(api.report_format_download(server, queue['file']))
+      f.close()
+    else:
+      print "[*] Report name required"
+      usage()
+      sys.exit(2)      
+  
+  def generate_reports(num_reports, report_format):
+    results = api.report_list(server)['reports']['report']
+    newlist = sorted(results, key=lambda k: k['timestamp'])
+    newlist.reverse()
+    finallist = newlist[0:num_reports-1]
+
+    for report in finallist:
+      generate_report(report['name'], report_format)
+  
+  def report_completed(report_name):
+    completed = False
+    for report in api.report_list(server)['reports']['report']:
+      if report['name'] == report_name:
+        if report['status'] == 'completed':
+          return True
+        else:
+          return False
+  
+  def wait_for_scan(uuid):
+    while 1:
+      if report_completed(uuid):
+        break
+      else:
+        time.sleep(2)
+  
+  if action:
+    if action == 'generate-report':
+      generate_report(report, report_format)
+    if action == 'generate-reports':
+      generate_reports(num_reports, report_format)
+    if action == 'list':
+      if list_type == 'reports':
+        print("Available reports:")
+        for report in api.report_list(server)['reports']['report']:
+          print("%s - Status: %s - %s\n%s\n" % (nessus.util.timestamp_to_date(report['timestamp']), report['status'],report['readablename'],report['name']))
+      elif list_type == 'templates':
+        print("Available templates")
+        for policy in api.template_list(server)['templates']['template']:
+          print "%s - %s " % (policy['readablename'],policy['name'])
+      elif list_type == 'policies':
+        print("Available policies")
+        for policy in api.policy_list(server)['policies']['policy']:
+          print "[%s] %s " % (policy['id'],policy['name'])       
+      elif list_type == 'scans':
+        print("Running scans")
+        for scan in api.scan_list(server)['scans']['scan']:
+          print "[%s] Scan Name: %s Status: %s" % (scan['uuid'], scan['readablename'], scan['status'])
+    if action == 'run':
+      scan = api.launch_scan_template(server, template)['scan']
+      print scan
+      if wait:
+        wait_for_scan(scan['uuid'])
+        generate_report(scan['uuid'])
+        
+        
+if __name__ == '__main__':
+  main()
