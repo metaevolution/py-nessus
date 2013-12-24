@@ -104,10 +104,10 @@ def main():
   def generate_report(report, report_format):
     if report:
       if report_format == 'nchapter.html':
-        queue = api.report_format_generate(server, report, report_format, 'vuln_by_host;vuln_by_plugin;remediations', filters) 
+        queue = api.report_format_generate(report, report_format, 'vuln_by_host;vuln_by_plugin;remediations', filters) 
         file_ext = ".htm"
       else:
-        queue = api.report_format_generate(server, report, report_format, None, []) 
+        queue = api.report_format_generate(report, report_format, None, []) 
         if report_format == "xslt.csv.xsl":
           file_ext = ".csv"
         else: 
@@ -117,11 +117,11 @@ def main():
       else:
         f = open(nessus.util.decode_filename(queue['file']) + file_ext, 'wb')
       while 1:
-        if api.report_format_status(server,queue['file'])['status'] == 'ready':
+        if api.report_format_status(queue['file'])['status'] == 'ready':
           break
         else:
           time.sleep(2)
-      f.write(api.report_format_download(server, queue['file']))
+      f.write(api.report_format_download(queue['file']))
       f.close()
     else:
       print "[*] Report name required"
@@ -129,7 +129,7 @@ def main():
       sys.exit(2)      
   
   def generate_reports(num_reports, report_format):
-    results = api.report_list(server)['reports']['report']
+    results = api.report_list()['reports']['report']
     newlist = sorted(results, key=lambda k: k['timestamp'])
     newlist.reverse()
     finallist = newlist[0:num_reports-1]
@@ -139,7 +139,7 @@ def main():
   
   def report_completed(report_name):
     completed = False
-    for report in api.report_list(server)['reports']['report']:
+    for report in api.report_list()['reports']['report']:
       if report['name'] == report_name:
         if report['status'] == 'completed':
           return True
@@ -161,22 +161,22 @@ def main():
     if action == 'list':
       if list_type == 'reports':
         print("Available reports:")
-        for report in api.report_list(server)['reports']['report']:
+        for report in api.report_list()['reports']['report']:
           print("%s - Status: %s - %s\n%s\n" % (nessus.util.timestamp_to_date(report['timestamp']), report['status'],report['readablename'],report['name']))
       elif list_type == 'templates':
         print("Available templates")
-        for policy in api.template_list(server)['templates']['template']:
+        for policy in api.template_list()['templates']['template']:
           print "%s - %s " % (policy['readablename'],policy['name'])
       elif list_type == 'policies':
         print("Available policies")
-        for policy in api.policy_list(server)['policies']['policy']:
+        for policy in api.policy_list()['policies']['policy']:
           print "[%s] %s " % (policy['id'],policy['name'])       
       elif list_type == 'scans':
         print("Running scans")
-        for scan in api.scan_list(server)['scans']['scan']:
+        for scan in api.scan_list()['scans']['scan']:
           print "[%s] Scan Name: %s Status: %s" % (scan['uuid'], scan['readablename'], scan['status'])
     if action == 'run':
-      scan = api.launch_scan_template(server, template)['scan']
+      scan = api.launch_scan_template(template)['scan']
       print scan
       if wait:
         wait_for_scan(scan['uuid'])
