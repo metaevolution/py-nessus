@@ -31,12 +31,12 @@ Example usage from within python
 -----
 
 ```
-from pynessus-api import api
+from nessus import api
 import pprint
 
 # create an instance of the API
 a = api.Api()
-a.login('https://[ip or hostname of nesuss server]:8834',[username],[password])
+a.login('https://[ip or hostname of nessus server]:8834',[username],[password])
 
 reports = a.report_list()
 pprint.pprint(reports)
