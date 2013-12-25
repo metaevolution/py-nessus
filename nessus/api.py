@@ -128,12 +128,20 @@ if __name__ == "__main__":
     print "Usage: %s [Username] [Password] [Nessus Server URL]"
     sys.exit()
   
+<<<<<<< HEAD
   a = Api()
+=======
+  a = Auth()
+>>>>>>> 14b880b08e0cd9b73f85f11886c16d380ed97649
   r = a.login(sys.argv[3], sys.argv[1], sys.argv[2])
   import pprint
   pprint.pprint(r)  
 
+<<<<<<< HEAD
   for report in a.report_list()['reports']['report']:
+=======
+  for report in a.report_list(server)['reports']['report']:
+>>>>>>> 14b880b08e0cd9b73f85f11886c16d380ed97649
     
     queue = a.report_format_generate(report['name'], 'nchapter.html', 'vuln_by_host;remediations', filters)
     f = open(util.decode_filename(queue['file']), 'wb')
