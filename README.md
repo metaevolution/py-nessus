@@ -46,8 +46,8 @@ pprint.pprint(reports)
 Installation 
 ------------
 ```
-git clone https://github.com/metaevolution/pynessus-api.git pynessus-api
-cd pynessus-api
+git clone https://github.com/metaevolution/py-nessus.git py-nessus
+cd py-nessus
 sudo python setup.py install
 ```
 
